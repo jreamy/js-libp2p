@@ -1,6 +1,6 @@
 import { pipe } from '@libp2p/utils'
 import { encode, decode } from 'it-length-prefixed'
-import type { AbortOptions, Stream } from '@libp2p/interface'
+import type { AbortOptions, Connection, Stream } from '@libp2p/interface'
 import type { Uint8ArrayList } from 'uint8arraylist'
 
 interface OutboundStreamOpts {
@@ -14,7 +14,7 @@ interface InboundStreamOpts {
 }
 
 export class OutboundStream {
-  constructor (private readonly rawStream: Stream, errCallback: (e: Error) => void, opts: OutboundStreamOpts) {
+  constructor (readonly id: string, private readonly rawStream: Stream, errCallback: (e: Error) => void, opts: OutboundStreamOpts) {
     if (opts.maxBufferSize != null) {
       rawStream.maxWriteBufferLength = opts.maxBufferSize
     }
@@ -71,6 +71,10 @@ export class InboundStream {
       this.rawStream,
       (source) => decode(source, opts)
     )
+  }
+
+  get status (): string {
+    return this.rawStream.status
   }
 
   async close (): Promise<void> {

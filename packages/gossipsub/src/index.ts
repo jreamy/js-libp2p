@@ -12,7 +12,8 @@ import type {
   PrivateKey,
   PublicKey,
   TypedEventTarget,
-  MessageStreamDirection
+  MessageStreamDirection,
+  Libp2pEvents
 } from '@libp2p/interface'
 import type { ConnectionManager, Registrar } from '@libp2p/interface-internal'
 
@@ -284,6 +285,7 @@ export interface GossipSubComponents {
   peerStore: PeerStore
   registrar: Registrar
   connectionManager: ConnectionManager
+  events: TypedEventTarget<Libp2pEvents>
   logger: ComponentLogger
 }
 

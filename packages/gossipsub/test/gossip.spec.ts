@@ -14,7 +14,7 @@ import { GossipsubDhi } from '../src/constants.js'
 import { GossipSub as GossipSubClass } from '../src/gossipsub.js'
 import { connectAllPubSubNodes, createComponentsArray } from './utils/create-pubsub.ts'
 import type { GossipSubAndComponents } from './utils/create-pubsub.ts'
-import type { PeerStore } from '@libp2p/interface'
+import type { Libp2pEvents, PeerStore, TypedEventTarget } from '@libp2p/interface'
 import type { ConnectionManager, Registrar } from '@libp2p/interface-internal'
 import type { SinonStubbedInstance } from 'sinon'
 
@@ -583,6 +583,7 @@ describe('gossip', () => {
         registrar,
         peerStore: stubInterface<PeerStore>(),
         connectionManager: stubInterface<ConnectionManager>(),
+        events: new EventTarget() as TypedEventTarget<Libp2pEvents>,
         logger: defaultLogger()
       },
       {

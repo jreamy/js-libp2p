@@ -6,7 +6,7 @@ import sinon from 'sinon'
 import { stubInterface } from 'sinon-ts'
 import { GossipSub as GossipSubClass } from '../src/gossipsub.js'
 import { fastMsgIdFn } from './utils/msgId.ts'
-import type { PeerStore } from '@libp2p/interface'
+import type { Libp2pEvents, PeerStore, TypedEventTarget } from '@libp2p/interface'
 import type { ConnectionManager, Registrar } from '@libp2p/interface-internal'
 
 const peerA = '16Uiu2HAmMkH6ZLen2tbhiuNCTZLLvrZaDgufNdT5MPjtC9Hr9YNA'
@@ -30,6 +30,7 @@ describe('Gossipsub acceptFrom', () => {
         registrar: stubInterface<Registrar>(),
         peerStore: stubInterface<PeerStore>(),
         connectionManager: stubInterface<ConnectionManager>(),
+        events: new EventTarget() as TypedEventTarget<Libp2pEvents>,
         logger: defaultLogger()
       },
       { emitSelf: false, fastMsgIdFn }
