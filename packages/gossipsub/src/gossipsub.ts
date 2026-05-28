@@ -534,7 +534,6 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
       return
     }
 
-    // const { registrarTopologyIds } = this.status
     this.status = { code: GossipStatusCode.stopped }
 
     if (this.opts.tagMeshPeers) {
@@ -630,6 +629,9 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
     return conns.filter(conn => !conn.limits)
   }
 
+  /**
+   * Runs when a the identify protocol runs on a newly established connection
+   */
   private async onPeerIdentify (evt: CustomEvent<IdentifyResult>): Promise<void> {
     const {peerId, protocols, connection} = evt.detail
 
@@ -655,6 +657,9 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
     this._onConnectionClosed(peerId)
   }
 
+  /**
+   * Handle connection closed events to determine if a peer has disconnected
+   */
   private async _onConnectionClosed(peerId: PeerId) {
 
     if (!this.peers.has(peerId.toString())) {
@@ -693,7 +698,7 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
     }
 
     // apply runOnLimitedConnection constraint 
-    if (connection.limits && !this.runOnLimitedConnection) {
+    if (!this.runOnLimitedConnection && connection.limits) {
       return
     }
 
