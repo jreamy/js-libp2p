@@ -491,10 +491,10 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
     //
 
     // when a connection opens, the identify protocol runs, determining the protocols the peer supports
-    this.components.events.addEventListener('peer:identify', this.onPeerIdentify);
+    this.components.events.addEventListener('peer:identify', this.onPeerIdentify.bind(this));
 
     // when a connection closes, handle peer deregistration
-    this.components.events.addEventListener('connection:close', this.onConnectionClosed)
+    this.components.events.addEventListener('connection:close', this.onConnectionClosed.bind(this))
 
     // Schedule to start heartbeat after `GossipsubHeartbeatInitialDelay`
     const heartbeatTimeout = setTimeout(this.runHeartbeat, constants.GossipsubHeartbeatInitialDelay)
@@ -640,7 +640,7 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
     const {peerId, protocols, connection} = evt.detail
 
     // ensure the peer supports gossip protocols
-    if (!protocols.some(p => this.protocols.includes(p))) {
+    if (!protocols?.some(p => this.protocols?.includes(p))) {
       return
     }
 
