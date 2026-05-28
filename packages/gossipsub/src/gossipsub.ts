@@ -61,7 +61,6 @@ import type { MsgIdFn, PublishConfig, TopicStr, MsgIdStr, PeerIdStr, RejectReaso
 import type {
   Connection, Stream, PeerId, Peer,
   Logger,
-  Topology,
   TypedEventTarget,
   MessageStreamDirection
 } from '@libp2p/interface'
@@ -76,7 +75,6 @@ enum GossipStatusCode {
 type GossipStatus =
   | {
     code: GossipStatusCode.started
-    registrarTopologyIds: string[]
     heartbeatTimeout: ReturnType<typeof setTimeout>
     hearbeatStartMs: number
   }
@@ -487,24 +485,21 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
     // - Multiplex stream
     // - Create a muxer and register that for each new stream call Upgrader.protocols handler
     //
-    // ## Topology
-    // - new instance of Topology (unlinked to libp2p) with handlers
-    // - registar.register(topology)
 
-    // register protocol with topology
-    // Topology callbacks called on connection manager changes
-    this.components.events.addEventListener('connection:open', (evt) => {
+    // when a connection opens, the identify protocol runs, determining the protocols the peer supports
+    this.components.events.addEventListener('peer:identify', (evt) => {
+      const {peerId, protocols, connection} = evt.detail
+
+      // if the peer supports gossip protocols, open 
+      if (protocols.some(p => this.protocols.includes(p))) {
+        this.onConnectionOpen(peerId, connection)
+      }
+    });
+
+    this.components.events.addEventListener('connection:close', (evt) => {
       const connection = evt.detail
-      this.onConnectionOpen(connection.remotePeer, connection)
+      this.onConnectionClosed(connection.remotePeer)
     })
-    const topology: Topology = {
-      onConnect: this.onPeerConnected.bind(this),
-      onDisconnect: this.onPeerDisconnected.bind(this),
-      notifyOnLimitedConnection: this.runOnLimitedConnection
-    }
-    const registrarTopologyIds = await Promise.all(
-      this.protocols.map(async (protocol) => registrar.register(protocol, topology))
-    )
 
     // Schedule to start heartbeat after `GossipsubHeartbeatInitialDelay`
     const heartbeatTimeout = setTimeout(this.runHeartbeat, constants.GossipsubHeartbeatInitialDelay)
@@ -512,7 +507,6 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
 
     this.status = {
       code: GossipStatusCode.started,
-      registrarTopologyIds,
       heartbeatTimeout,
       hearbeatStartMs: Date.now() + constants.GossipsubHeartbeatInitialDelay
     }
@@ -548,7 +542,7 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
       return
     }
 
-    const { registrarTopologyIds } = this.status
+    // const { registrarTopologyIds } = this.status
     this.status = { code: GossipStatusCode.stopped }
 
     if (this.opts.tagMeshPeers) {
@@ -559,7 +553,7 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
     // unregister protocol and handlers
     const registrar = this.components.registrar
     await Promise.all(this.protocols.map(async (protocol) => registrar.unhandle(protocol)))
-    registrarTopologyIds.forEach((id) => { registrar.unregister(id) })
+    // registrarTopologyIds.forEach((id) => { registrar.unregister(id) })
 
     this.outboundInflightQueue.end()
 
@@ -627,30 +621,19 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
     // create inbound stream
     this.createInboundStream(peerId, stream)
     // attempt to create outbound stream
-    if (!this.streamsOutbound.has(peerId.toString())) {
-      this.outboundInflightQueue.push({ peerId, connection })
-    }
-  }
-
-  /**
-   * Registrar notifies an established connection with pubsub protocol
-   */
-  private onPeerConnected (peerId: PeerId, connection: Connection): void {
-    this.metrics?.newConnectionCount.inc({ status: connection.status })
-    // libp2p may emit a closed connection and never issue peer:disconnect event
-    // see https://github.com/ChainSafe/js-libp2p-gossipsub/issues/398
-    if (!this.isStarted() || connection.status !== 'open') {
-      return
-    }
-
-    this.addPeer(peerId, connection.direction, connection.remoteAddr)
     this.outboundInflightQueue.push({ peerId, connection })
   }
 
-  private onConnectionOpen (peerId: PeerId, connection: Connection): void {
+  private getOpenConnections (peerId: PeerId, direction?: 'inbound' | 'outbound'): Connection[] {
+    const conns = this.components.connectionManager.getConnections(peerId).filter(conn => conn.status === 'open')
+    if (this.runOnLimitedConnection) {
+      return conns
+    }
+    return conns.filter(conn => !conn.limits)
+  }
+
+  private async onConnectionOpen (peerId: PeerId, connection: Connection): Promise<void> {
     this.metrics?.newConnectionCount.inc({ status: connection.status })
-    // libp2p may emit a closed connection and never issue peer:disconnect event
-    // see https://github.com/ChainSafe/js-libp2p-gossipsub/issues/398
     if (!this.isStarted() || connection.status !== 'open') {
       return
     }
@@ -662,13 +645,22 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
   /**
    * Registrar notifies a closing connection with pubsub protocol
    */
-  private onPeerDisconnected (peerId: PeerId): void {
-    if (0 === this.components.connectionManager.getConnections(peerId).filter(x => x.status === 'open').length) {
+  private async onConnectionClosed (peerId: PeerId): Promise<void> {
+    if (!this.peers.has(peerId.toString())) {
       return
     }
 
-    this.log('connection ended %p', peerId)
-    this.removePeer(peerId)
+    const conns = this.getOpenConnections(peerId)
+    if (conns.length === 0) {
+      this.log('connection ended %p', peerId)
+      this.removePeer(peerId)
+      return
+    }
+
+    // the connection closed, open a new stream if that was also affected
+    if (this.streamsOutbound.get(peerId.toString())?.status !== 'open') {
+      this.outboundInflightQueue.push({ peerId, connection: conns[0] })
+    }
   }
 
   private async createOutboundStream (peerId: PeerId, connection: Connection): Promise<void> {
@@ -682,51 +674,30 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
       return
     }
 
-    // TODO make this behavior more robust
-    // This behavior is different than for inbound streams
-    // If an outbound stream already exists, don't create a new stream
-    // if (this.streamsOutbound.has(id)) {
-    //   return
-    // }
-
-    if (connection.limits != null && !this.runOnLimitedConnection) {
+    // If an outbound stream already exists on this connection, don't create a new stream
+    const existing = this.streamsOutbound.get(id)
+    if (existing?.status === 'open' && existing?.connectionId === connection.id) {
       return
     }
 
-    // const old = this.streamsOutbound.get(id)
-    // if (old && old.status === 'open' && old.id >= connection.id) {
-    //   return
-    // }
+    // apply runOnLimitedConnection constraint 
+    if (connection.limits && !this.runOnLimitedConnection) {
+      return
+    }
 
     try {
       const rawStream = await connection.newStream(this.protocols, {
         runOnLimitedConnection: this.runOnLimitedConnection
       })
-      const streamId = `${connection.id}.${rawStream.id}`
       rawStream.addEventListener('close', (evt) => {
-        if (streamId === this.streamsOutbound.get(id)?.id) {
-          if (connection.status === 'open') {
-            this.outboundInflightQueue.push({ peerId, connection })
-            return
-          }
-        }
+        this.onConnectionClosed(peerId)
       })
 
       const stream = new OutboundStream(
-        streamId, rawStream,
+        connection.id, rawStream,
         (e) => { this.log.error('outbound pipe error', e) },
         { maxBufferSize: this.opts.maxOutboundBufferSize }
       )
-
-      // If the outbound connection closes, attempt to open a new stream on another connection
-      connection.addEventListener('close', () => {
-        if (streamId === this.streamsOutbound.get(id)?.id) {
-          for (const conn of this.components.connectionManager.getConnections(peerId)) {
-            this.outboundInflightQueue.push({ peerId, connection: conn })
-            return
-          }
-        }
-      })
 
       this.log('create outbound stream %p', peerId)
 
@@ -763,11 +734,11 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
     // This behavior is different than for outbound streams
     // If a peer initiates a new inbound connection
     // we assume that one is the new canonical inbound stream
-    // const priorInboundStream = this.streamsInbound.get(id)
-    // if (priorInboundStream !== undefined) {
-    //   this.log('replacing existing inbound steam %s', id)
-    //   priorInboundStream.close().catch((err) => { this.log.error(err) })
-    // }
+    const priorInboundStream = this.streamsInbound.get(id)
+    if (priorInboundStream !== undefined) {
+      this.log('replacing existing inbound steam %s', id)
+      priorInboundStream.close().catch((err) => { this.log.error(err) })
+    }
 
     this.log('create inbound stream %s', id)
 
@@ -971,16 +942,7 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
    */
   private handlePeerReadStreamError (err: Error, peerId: PeerId): void {
     this.log.error(err)
-    this.onPeerDisconnected(peerId)
-  }
-
-  public addDirectPeer (peerId: PeerIdStr) {
-    if (this.direct.has(peerId)) {
-      return
-    }
-
-    this.direct.add(peerId)
-    this.connect(peerId)
+    this.onConnectionClosed(peerId)
   }
 
   /**
