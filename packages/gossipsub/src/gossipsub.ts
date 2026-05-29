@@ -666,13 +666,15 @@ export class GossipSub extends TypedEventEmitter<GossipSubEvents> implements Typ
 
     // TODO make this behavior more robust
     // This behavior is different than for inbound streams
-    // If an outbound stream already exists, don't create a new stream
-    if (this.streamsOutbound.has(id)) {
+    // If an outbound stream already exists on this connection, don't create a new stream
+    const priorOutboundStream = this.streamsOutbound.get(id)
+    if (priorOutboundStream?.status === 'open' && priorOutboundStream.connectionId === connection.id) {
       return
     }
 
     try {
       const stream = new OutboundStream(
+        connection.id,
         await connection.newStream(this.protocols, {
           runOnLimitedConnection: this.runOnLimitedConnection
         }),
