@@ -64,6 +64,31 @@ describe('2 nodes', () => {
     })
   })
 
+  describe('Reconnect after Connection Drop', () => {
+    let nodes: GossipSubAndComponents[]
+
+    // Create pubsub nodes
+    beforeEach(async () => {
+      nodes = await createComponentsArray({ number: 2 })
+
+      await start(...nodes.map(n => n.pubsub))
+    })
+
+    afterEach(async () => {
+      await stop(...nodes.reduce<any[]>((acc, curr) => acc.concat(curr.pubsub, ...Object.entries(curr.components)), []))
+    })
+
+    it('Dial from nodeA to nodeB happened with FloodsubID', async () => {
+      await connectPubsubNodes(nodes[0], nodes[1])
+      await nodesArePubSubPeers(nodes[0], nodes[1])
+
+      nodes[0].components.connectionManager.getConnections(nodes[1].components.peerId).forEach((n) => n.abort({name: "abort", cause: "abort", message: "page refresh"}))
+
+      await connectPubsubNodes(nodes[0], nodes[1])
+      await nodesArePubSubPeers(nodes[0], nodes[1])
+    })
+  })
+
   describe('basics', () => {
     let nodes: GossipSubAndComponents[]
 
