@@ -52,18 +52,18 @@
     "@libp2p/peer-id": "^6.0.9",
     "@libp2p/peer-record": "^9.0.10",
     "@libp2p/utils": "^7.2.1",
-    "@multiformats/multiaddr": "^13.0.1",
-    "@multiformats/multiaddr-matcher": "^3.0.1",
+    "@multiformats/multiaddr": "^13.0.3",
+    "@multiformats/multiaddr-matcher": "^3.0.2",
     "it-drain": "^3.0.10",
     "it-parallel": "^3.0.13",
     "main-event": "^1.0.1",
     "protons-runtime": "^6.0.1",
     "uint8arraylist": "^2.4.8",
-    "uint8arrays": "^5.1.0"
+    "uint8arrays": "^6.1.1"
   },
   "devDependencies": {
     "@libp2p/logger": "^6.2.7",
-    "aegir": "^47.0.22",
+    "aegir": "^48.0.11",
     "delay": "^7.0.0",
     "it-length-prefixed": "^10.0.1",
     "protons": "^8.1.1",

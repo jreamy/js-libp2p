@@ -58,13 +58,13 @@
     "@noble/hashes": "^2.0.1",
     "asn1js": "^3.0.6",
     "interface-datastore": "^9.0.1",
-    "multiformats": "^13.4.0",
+    "multiformats": "^14.0.0",
     "sanitize-filename": "^1.6.3",
-    "uint8arrays": "^5.1.0"
+    "uint8arrays": "^6.1.1"
   },
   "devDependencies": {
     "@libp2p/logger": "^6.2.7",
-    "aegir": "^47.0.22",
+    "aegir": "^48.0.11",
     "datastore-core": "^11.0.1"
   },
   "sideEffects": false

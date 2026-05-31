@@ -49,16 +49,16 @@
   },
   "dependencies": {
     "@libp2p/interface": "^3.2.2",
-    "@multiformats/multiaddr": "^13.0.1",
+    "@multiformats/multiaddr": "^13.0.3",
     "interface-datastore": "^9.0.1",
-    "multiformats": "^13.4.0",
+    "multiformats": "^14.0.0",
     "weald": "^1.1.0"
   },
   "devDependencies": {
     "@libp2p/peer-id": "^6.0.9",
-    "aegir": "^47.0.22",
+    "aegir": "^48.0.11",
     "sinon": "^21.0.0",
-    "uint8arrays": "^5.1.0"
+    "uint8arrays": "^6.1.1"
   },
   "browser": {
     "./dist/src/debug/node.js": "./dist/src/debug/browser.js"

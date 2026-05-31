@@ -52,16 +52,16 @@
     "@libp2p/peer-id": "^6.0.9",
     "@libp2p/tcp": "^11.0.20",
     "@libp2p/utils": "^7.2.1",
-    "@multiformats/multiaddr": "^13.0.1",
+    "@multiformats/multiaddr": "^13.0.3",
     "it-drain": "^3.0.10",
     "it-length-prefixed": "^10.0.1",
     "it-pushable": "^3.2.3",
-    "multiformats": "^13.4.0",
+    "multiformats": "^14.0.0",
     "p-event": "^7.0.0",
-    "uint8arrays": "^5.1.0"
+    "uint8arrays": "^6.1.1"
   },
   "devDependencies": {
-    "aegir": "^47.0.22",
+    "aegir": "^48.0.11",
     "sinon-ts": "^2.0.0"
   }
 }
