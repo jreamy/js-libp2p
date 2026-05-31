@@ -14,7 +14,7 @@ interface InboundStreamOpts {
 }
 
 export class OutboundStream {
-  constructor (private readonly rawStream: Stream, errCallback: (e: Error) => void, opts: OutboundStreamOpts) {
+  constructor (readonly connectionId: string, private readonly rawStream: Stream, errCallback: (e: Error) => void, opts: OutboundStreamOpts) {
     if (opts.maxBufferSize != null) {
       rawStream.maxWriteBufferLength = opts.maxBufferSize
     }
@@ -28,6 +28,10 @@ export class OutboundStream {
 
   get protocol (): string {
     return this.rawStream.protocol
+  }
+
+  get status (): string {
+    return this.rawStream.status
   }
 
   push (data: Uint8Array): void {
